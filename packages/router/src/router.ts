@@ -713,7 +713,7 @@ export class Router {
       const storedState = this.routerState;
       const storedUrl = this.currentUrlTree;
 
-      let uglyButICantDoBetter: Promise<void> = Promise.resolve();
+      let internalPromise: Promise<void> = Promise.resolve();
 
       routerState$
           .forEach(({appliedUrl, state, shouldActivate}: any) => {
@@ -740,11 +740,11 @@ export class Router {
 
             const result = activateRoutes.activate(this.rootContexts);
             // whether the result from activating is sync or not, make it async either way
-            uglyButICantDoBetter = Promise.resolve(result);
+            internalPromise = Promise.resolve(result);
           })
           .then(
             () => {
-              return uglyButICantDoBetter;
+              return internalPromise;
             }
           )
           .then(
@@ -851,7 +851,7 @@ class ActivateRoutes {
 
           return Promise.all(promises);
         }
-      )
+      );
   }
 
   private deactivateRoutes(
@@ -917,7 +917,7 @@ class ActivateRoutes {
 
       const promises: Promise<void>[] = [];
       forEach(children, (v: any, k: string) => {
-        promises.push(this.deactivateRouteAndItsChildren(v, contexts))
+        promises.push(this.deactivateRouteAndItsChildren(v, contexts));
       });
 
       return Promise.all(promises)
@@ -954,7 +954,7 @@ class ActivateRoutes {
           () => {
             this.forwardEvent(new ActivationEnd(c.value.snapshot));
           }
-        )
+        );
       return promise;
     });
 
@@ -965,7 +965,7 @@ class ActivateRoutes {
             this.forwardEvent(new ChildActivationEnd(futureNode.value.snapshot));
           }
         }
-      )
+      );
   }
 
   private activateRoutes(
@@ -1007,7 +1007,7 @@ class ActivateRoutes {
                 () => {
                   return advanceActivatedRouteNodeAndItsChildren(stored.route);
                 }
-              )
+              );
           }
 
           return Promise.resolve(advanceActivatedRouteNodeAndItsChildren(stored.route));
@@ -1027,7 +1027,7 @@ class ActivateRoutes {
                 () => {
                   return this.activateChildRoutes(futureNode, null, context.children);
                 }
-              )
+              );
           }
 
           return this.activateChildRoutes(futureNode, null, context.children);
