@@ -601,6 +601,7 @@ export class Router {
   private runNavigate(
       url: UrlTree, rawUrl: UrlTree, skipLocationChange: boolean, replaceUrl: boolean, id: number,
       precreatedState: RouterStateSnapshot|null): Promise<boolean> {
+
     if (id !== this.navigationId) {
       (this.events as Subject<Event>)
           .next(new NavigationCancel(
@@ -712,6 +713,8 @@ export class Router {
       const storedState = this.routerState;
       const storedUrl = this.currentUrlTree;
 
+      let uglyButICantDoBetter: Promise<void> = Promise.resolve();
+
       routerState$
           .forEach(({appliedUrl, state, shouldActivate}: any) => {
             if (!shouldActivate || id !== this.navigationId) {
@@ -737,8 +740,13 @@ export class Router {
 
             const result = activateRoutes.activate(this.rootContexts);
             // whether the result from activating is sync or not, make it async either way
-            return Promise.resolve(result);
+            uglyButICantDoBetter = Promise.resolve(result);
           })
+          .then(
+            () => {
+              return uglyButICantDoBetter;
+            }
+          )
           .then(
             () => {
               navigationIsSuccessful = true;
