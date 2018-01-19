@@ -907,19 +907,26 @@ class ActivateRoutes {
       const children: {[outletName: string]: any} = nodeChildrenAsMap(route);
       const contexts = route.value.component ? context.children : parentContexts;
 
-      forEach(children, (v: any, k: string) => this.deactivateRouteAndItsChildren(v, contexts));
+      const promises: Promise<void>[] = [];
+      forEach(children, (v: any, k: string) => {
+        promises.push(this.deactivateRouteAndItsChildren(v, contexts))
+      });
 
-      if (context.outlet) {
-        // Destroy the component
-        const result = context.outlet.deactivate();
-        return Promise.resolve(result)
-          .then(
-            () => {
-              // Destroy the contexts for all the outlets that were in the component
-              context.children.onOutletDeactivated();
+      return Promise.all(promises)
+        .then(
+          () => {
+            if (context.outlet) {
+              // Destroy the component
+              const result = context.outlet.deactivate();
+              return Promise.resolve(result);
             }
-          )
-      }
+          }
+        )
+        .then(
+          () => {
+            context.children.onOutletDeactivated();
+          }
+        );
     }
 
     return Promise.resolve();
@@ -930,10 +937,6 @@ class ActivateRoutes {
       contexts: ChildrenOutletContexts): Promise<void> {
 
     const children: {[outlet: string]: any} = nodeChildrenAsMap(currNode);
-    futureNode.children.forEach(c => {
-      this.activateRoutes(c, children[c.value.outlet], contexts);
-      this.forwardEvent(new ActivationEnd(c.value.snapshot));
-    });
 
 
     const promises = futureNode.children.map(c => {
