@@ -713,10 +713,10 @@ export class Router {
       const storedState = this.routerState;
       const storedUrl = this.currentUrlTree;
 
-      let uglyButICantDoBetter: Promise<void> = Promise.resolve();
-
-      routerState$
-          .forEach(({appliedUrl, state, shouldActivate}: any) => {
+      const activationResults: Promise<void>[] = [];
+      new Promise((resolve, reject) => {
+        routerState$.subscribe({
+          next({appliedUrl, state, shouldActivate}: any) {
             if (!shouldActivate || id !== this.navigationId) {
               navigationIsSuccessful = false;
               return;
@@ -738,54 +738,61 @@ export class Router {
 
             const activateRoutes =  new ActivateRoutes(this.routeReuseStrategy, state, storedState, (evt: Event) => this.triggerEvent(evt));
 
-            const result = activateRoutes.activate(this.rootContexts);
-            // whether the result from activating is sync or not, make it async either way
-            uglyButICantDoBetter = Promise.resolve(result);
-          })
-          .then(
-            () => {
-              return uglyButICantDoBetter;
-            }
-          )
-          .then(
-            () => {
-              navigationIsSuccessful = true;
-            }
-          )
-          .then(
-              () => {
-                if (navigationIsSuccessful) {
-                  this.navigated = true;
-                  (this.events as Subject<Event>)
-                      .next(new NavigationEnd(
-                          id, this.serializeUrl(url), this.serializeUrl(this.currentUrlTree)));
-                  resolvePromise(true);
-                } else {
-                  this.resetUrlToCurrentUrlTree();
-                  (this.events as Subject<Event>)
-                      .next(new NavigationCancel(id, this.serializeUrl(url), ''));
-                  resolvePromise(false);
-                }
-              },
-              (e: any) => {
-                if (isNavigationCancelingError(e)) {
-                  this.navigated = true;
-                  this.resetStateAndUrl(storedState, storedUrl, rawUrl);
-                  (this.events as Subject<Event>)
-                      .next(new NavigationCancel(id, this.serializeUrl(url), e.message));
+            activationResults.push(Promise.resolve(activateRoutes.activate(this.rootContexts)));
 
-                  resolvePromise(false);
-                } else {
-                  this.resetStateAndUrl(storedState, storedUrl, rawUrl);
-                  (this.events as Subject<Event>)
-                      .next(new NavigationError(id, this.serializeUrl(url), e));
-                  try {
-                    resolvePromise(this.errorHandler(e));
-                  } catch (ee) {
-                    rejectPromise(ee);
-                  }
+          },
+          error(e: Error) {
+            reject(e);
+          },
+          complete() {
+            Promise.all(activationResults)
+              .then(
+                () => {
+                  resolve();
                 }
-              });
+              );
+          }
+        });
+      })
+      .then(
+        () => {
+          navigationIsSuccessful = true;
+        }
+      )
+      .then(
+          () => {
+            if (navigationIsSuccessful) {
+              this.navigated = true;
+              (this.events as Subject<Event>)
+                  .next(new NavigationEnd(
+                      id, this.serializeUrl(url), this.serializeUrl(this.currentUrlTree)));
+              resolvePromise(true);
+            } else {
+              this.resetUrlToCurrentUrlTree();
+              (this.events as Subject<Event>)
+                  .next(new NavigationCancel(id, this.serializeUrl(url), ''));
+              resolvePromise(false);
+            }
+          },
+          (e: any) => {
+            if (isNavigationCancelingError(e)) {
+              this.navigated = true;
+              this.resetStateAndUrl(storedState, storedUrl, rawUrl);
+              (this.events as Subject<Event>)
+                  .next(new NavigationCancel(id, this.serializeUrl(url), e.message));
+
+              resolvePromise(false);
+            } else {
+              this.resetStateAndUrl(storedState, storedUrl, rawUrl);
+              (this.events as Subject<Event>)
+                  .next(new NavigationError(id, this.serializeUrl(url), e));
+              try {
+                resolvePromise(this.errorHandler(e));
+              } catch (ee) {
+                rejectPromise(ee);
+              }
+            }
+          });
     });
   }
 
@@ -851,7 +858,7 @@ class ActivateRoutes {
 
           return Promise.all(promises);
         }
-      )
+      );
   }
 
   private deactivateRoutes(
@@ -917,7 +924,7 @@ class ActivateRoutes {
 
       const promises: Promise<void>[] = [];
       forEach(children, (v: any, k: string) => {
-        promises.push(this.deactivateRouteAndItsChildren(v, contexts))
+        promises.push(this.deactivateRouteAndItsChildren(v, contexts));
       });
 
       return Promise.all(promises)
@@ -954,7 +961,7 @@ class ActivateRoutes {
           () => {
             this.forwardEvent(new ActivationEnd(c.value.snapshot));
           }
-        )
+        );
       return promise;
     });
 
@@ -965,7 +972,7 @@ class ActivateRoutes {
             this.forwardEvent(new ChildActivationEnd(futureNode.value.snapshot));
           }
         }
-      )
+      );
   }
 
   private activateRoutes(
@@ -1007,7 +1014,7 @@ class ActivateRoutes {
                 () => {
                   return advanceActivatedRouteNodeAndItsChildren(stored.route);
                 }
-              )
+              );
           }
 
           return Promise.resolve(advanceActivatedRouteNodeAndItsChildren(stored.route));
@@ -1027,7 +1034,7 @@ class ActivateRoutes {
                 () => {
                   return this.activateChildRoutes(futureNode, null, context.children);
                 }
-              )
+              );
           }
 
           return this.activateChildRoutes(futureNode, null, context.children);
