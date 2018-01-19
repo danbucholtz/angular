@@ -94,7 +94,7 @@ export class RouterOutlet implements OnDestroy, OnInit {
   /**
    * Called when the `RouteReuseStrategy` instructs to detach the subtree
    */
-  detach(): ComponentRef<any> {
+  detach(): ComponentRef<any> | Promise<ComponentRef<any>> {
     if (!this.activated) throw new Error('Outlet is not activated');
     this.location.detach();
     const cmp = this.activated;
@@ -106,13 +106,13 @@ export class RouterOutlet implements OnDestroy, OnInit {
   /**
    * Called when the `RouteReuseStrategy` instructs to re-attach a previously detached subtree
    */
-  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute) {
+  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute): void | Promise<void> {
     this.activated = ref;
     this._activatedRoute = activatedRoute;
     this.location.insert(ref.hostView);
   }
 
-  deactivate(): void {
+  deactivate(): void | Promise<void> {
     if (this.activated) {
       const c = this.component;
       this.activated.destroy();
@@ -122,7 +122,7 @@ export class RouterOutlet implements OnDestroy, OnInit {
     }
   }
 
-  activateWith(activatedRoute: ActivatedRoute, resolver: ComponentFactoryResolver|null) {
+  activateWith(activatedRoute: ActivatedRoute, resolver: ComponentFactoryResolver|null): void | Promise<void> {
     if (this.isActivated) {
       throw new Error('Cannot activate an already activated outlet');
     }
