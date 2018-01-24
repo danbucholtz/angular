@@ -713,7 +713,7 @@ export class Router {
       const storedState = this.routerState;
       const storedUrl = this.currentUrlTree;
 
-      let internalPromise: Promise<void> = Promise.resolve();
+      let internalPromise: Promise<void> | null = null;
 
       routerState$
           .forEach(({appliedUrl, state, shouldActivate}: any) => {
@@ -744,12 +744,14 @@ export class Router {
           })
           .then(
             () => {
-              return internalPromise;
-            }
-          )
-          .then(
-            () => {
-              navigationIsSuccessful = true;
+              if (internalPromise) {
+                return internalPromise
+                .then(
+                  () => {
+                    navigationIsSuccessful = true;
+                  }
+                );
+              }
             }
           )
           .then(
