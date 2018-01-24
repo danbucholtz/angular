@@ -66,7 +66,7 @@ export interface NavigationExtras {
    * ```
    *  @Component({...})
    *  class ChildComponent {
-  *    constructor(private router: Router, private route: ActivatedRoute) {}
+  *    constructor(protected router: Router, protected route: ActivatedRoute) {}
   *
   *    go() {
   *      this.router.navigate(['../list'], { relativeTo: this.route });
@@ -198,14 +198,14 @@ function defaultRouterHook(snapshot: RouterStateSnapshot): Observable<void> {
  * @stable
  */
 export class Router {
-  private currentUrlTree: UrlTree;
-  private rawUrlTree: UrlTree;
-  private navigations = new BehaviorSubject<NavigationParams>(null !);
+  protected currentUrlTree: UrlTree;
+  protected rawUrlTree: UrlTree;
+  protected navigations = new BehaviorSubject<NavigationParams>(null !);
 
-  private locationSubscription: Subscription;
-  private navigationId: number = 0;
-  private configLoader: RouterConfigLoader;
-  private ngModule: NgModuleRef<any>;
+  protected locationSubscription: Subscription;
+  protected navigationId: number = 0;
+  protected configLoader: RouterConfigLoader;
+  protected ngModule: NgModuleRef<any>;
 
   public readonly events: Observable<Event> = new Subject<Event>();
   public readonly routerState: RouterState;
@@ -264,8 +264,8 @@ export class Router {
    */
   // TODO: vsavkin make internal after the final is out.
   constructor(
-      private rootComponentType: Type<any>|null, private urlSerializer: UrlSerializer,
-      private rootContexts: ChildrenOutletContexts, private location: Location, injector: Injector,
+      protected rootComponentType: Type<any>|null, protected urlSerializer: UrlSerializer,
+      protected rootContexts: ChildrenOutletContexts, protected location: Location, injector: Injector,
       loader: NgModuleFactoryLoader, compiler: Compiler, public config: Routes) {
     const onLoadStart = (r: Route) => this.triggerEvent(new RouteConfigLoadStart(r));
     const onLoadEnd = (r: Route) => this.triggerEvent(new RouteConfigLoadEnd(r));
@@ -495,7 +495,7 @@ export class Router {
     return containsTree(this.currentUrlTree, urlTree, exact);
   }
 
-  private removeEmptyProps(params: Params): Params {
+  protected removeEmptyProps(params: Params): Params {
     return Object.keys(params).reduce((result: Params, key: string) => {
       const value: any = params[key];
       if (value !== null && value !== undefined) {
@@ -505,7 +505,7 @@ export class Router {
     }, {});
   }
 
-  private processNavigations(): void {
+  protected processNavigations(): void {
     concatMap
         .call(
             this.navigations,
@@ -522,7 +522,7 @@ export class Router {
         .subscribe(() => {});
   }
 
-  private scheduleNavigation(rawUrl: UrlTree, source: NavigationSource, extras: NavigationExtras):
+  protected scheduleNavigation(rawUrl: UrlTree, source: NavigationSource, extras: NavigationExtras):
       Promise<boolean> {
     const lastNavigation = this.navigations.value;
 
@@ -565,7 +565,7 @@ export class Router {
     return promise.catch((e: any) => Promise.reject(e));
   }
 
-  private executeScheduledNavigation({id, rawUrl, extras, resolve, reject}: NavigationParams):
+  protected executeScheduledNavigation({id, rawUrl, extras, resolve, reject}: NavigationParams):
       void {
     const url = this.urlHandlingStrategy.extract(rawUrl);
     const urlTransition = !this.navigated || url.toString() !== this.currentUrlTree.toString();
@@ -598,7 +598,7 @@ export class Router {
     }
   }
 
-  private runNavigate(
+  protected runNavigate(
       url: UrlTree, rawUrl: UrlTree, skipLocationChange: boolean, replaceUrl: boolean, id: number,
       precreatedState: RouterStateSnapshot|null): Promise<boolean> {
 
@@ -791,22 +791,22 @@ export class Router {
     });
   }
 
-  private resetStateAndUrl(storedState: RouterState, storedUrl: UrlTree, rawUrl: UrlTree): void {
+  protected resetStateAndUrl(storedState: RouterState, storedUrl: UrlTree, rawUrl: UrlTree): void {
     (this as{routerState: RouterState}).routerState = storedState;
     this.currentUrlTree = storedUrl;
     this.rawUrlTree = this.urlHandlingStrategy.merge(this.currentUrlTree, rawUrl);
     this.resetUrlToCurrentUrlTree();
   }
 
-  private resetUrlToCurrentUrlTree(): void {
+  protected resetUrlToCurrentUrlTree(): void {
     this.location.replaceState(this.urlSerializer.serialize(this.rawUrlTree));
   }
 }
 
 class ActivateRoutes {
   constructor(
-      private routeReuseStrategy: RouteReuseStrategy, private futureState: RouterState,
-      private currState: RouterState, private forwardEvent: (evt: Event) => void) {}
+      protected routeReuseStrategy: RouteReuseStrategy, protected futureState: RouterState,
+      protected currState: RouterState, protected forwardEvent: (evt: Event) => void) {}
 
   activate(parentContexts: ChildrenOutletContexts): void | Promise<void> {
     const futureRoot = this.futureState._root;
@@ -824,7 +824,7 @@ class ActivateRoutes {
   }
 
   // De-activate the child route that are not re-used for the future state
-  private deactivateChildRoutes(
+  protected deactivateChildRoutes(
       futureNode: TreeNode<ActivatedRoute>, currNode: TreeNode<ActivatedRoute>|null,
       contexts: ChildrenOutletContexts): Promise<any> {
 
@@ -856,7 +856,7 @@ class ActivateRoutes {
       );
   }
 
-  private deactivateRoutes(
+  protected deactivateRoutes(
       futureNode: TreeNode<ActivatedRoute>, currNode: TreeNode<ActivatedRoute>,
       parentContext: ChildrenOutletContexts): Promise<void> {
     const future = futureNode.value;
@@ -884,7 +884,7 @@ class ActivateRoutes {
     }
   }
 
-  private deactivateRouteAndItsChildren(
+  protected deactivateRouteAndItsChildren(
       route: TreeNode<ActivatedRoute>, parentContexts: ChildrenOutletContexts): Promise<void> {
     if (this.routeReuseStrategy.shouldDetach(route.value.snapshot)) {
       return this.detachAndStoreRouteSubtree(route, parentContexts);
@@ -893,7 +893,7 @@ class ActivateRoutes {
     }
   }
 
-  private detachAndStoreRouteSubtree(
+  protected detachAndStoreRouteSubtree(
       route: TreeNode<ActivatedRoute>, parentContexts: ChildrenOutletContexts): Promise<void> {
     const context = parentContexts.getContext(route.value.outlet);
     if (context && context.outlet) {
@@ -909,7 +909,7 @@ class ActivateRoutes {
     return Promise.resolve();
   }
 
-  private deactivateRouteAndOutlet(
+  protected deactivateRouteAndOutlet(
       route: TreeNode<ActivatedRoute>, parentContexts: ChildrenOutletContexts): Promise<void> {
     const context = parentContexts.getContext(route.value.outlet);
 
@@ -942,7 +942,7 @@ class ActivateRoutes {
     return Promise.resolve();
   }
 
-  private activateChildRoutes(
+  protected activateChildRoutes(
       futureNode: TreeNode<ActivatedRoute>, currNode: TreeNode<ActivatedRoute>|null,
       contexts: ChildrenOutletContexts): Promise<void> {
 
@@ -970,7 +970,7 @@ class ActivateRoutes {
       );
   }
 
-  private activateRoutes(
+  protected activateRoutes(
       futureNode: TreeNode<ActivatedRoute>, currNode: TreeNode<ActivatedRoute>,
       parentContexts: ChildrenOutletContexts): Promise<void> {
     const future = futureNode.value;
