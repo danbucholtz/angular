@@ -66,7 +66,7 @@ export interface NavigationExtras {
    * ```
    *  @Component({...})
    *  class ChildComponent {
-  *    constructor(protected router: Router, protected route: ActivatedRoute) {}
+  *    constructor(private router: Router, private route: ActivatedRoute) {}
   *
   *    go() {
   *      this.router.navigate(['../list'], { relativeTo: this.route });
@@ -164,9 +164,9 @@ function defaultErrorHandler(error: any): any {
   throw error;
 }
 
-type NavigationSource = 'imperative' | 'popstate' | 'hashchange';
+export type NavigationSource = 'imperative' | 'popstate' | 'hashchange';
 
-type NavigationParams = {
+export type NavigationParams = {
   id: number,
   rawUrl: UrlTree,
   extras: NavigationExtras,
@@ -295,11 +295,12 @@ export class Router {
   /**
    * Sets up the location change listener and performs the initial navigation.
    */
-  initialNavigation(): void {
+  initialNavigation(): Promise<any> {
     this.setUpLocationChangeListener();
     if (this.navigationId === 0) {
-      this.navigateByUrl(this.location.path(true), {replaceUrl: true});
+      return this.navigateByUrl(this.location.path(true), {replaceUrl: true});
     }
+    return Promise.resolve();
   }
 
   /**
@@ -495,7 +496,7 @@ export class Router {
     return containsTree(this.currentUrlTree, urlTree, exact);
   }
 
-  protected removeEmptyProps(params: Params): Params {
+  private removeEmptyProps(params: Params): Params {
     return Object.keys(params).reduce((result: Params, key: string) => {
       const value: any = params[key];
       if (value !== null && value !== undefined) {
@@ -709,11 +710,11 @@ export class Router {
 
       // applied the new router state
       // this operation has side effects
-      let navigationIsSuccessful: boolean;
+      let navigationIsSuccessful: boolean = false;
       const storedState = this.routerState;
       const storedUrl = this.currentUrlTree;
 
-      let internalPromise: Promise<void> | null = null;
+      const activatedRoutes: ActivateRoutes[] = [];
 
       routerState$
           .forEach(({appliedUrl, state, shouldActivate}: any) => {
@@ -736,22 +737,17 @@ export class Router {
               }
             }
 
-            const activateRoutes =  new ActivateRoutes(this.routeReuseStrategy, state, storedState, (evt: Event) => this.triggerEvent(evt));
-
-            const result = activateRoutes.activate(this.rootContexts);
-            // whether the result from activating is sync or not, make it async either way
-            internalPromise = Promise.resolve(result);
+            activatedRoutes.push(new ActivateRoutes(this.routeReuseStrategy, state, storedState, (evt: Event) => this.triggerEvent(evt)));
           })
           .then(
             () => {
-              if (internalPromise) {
-                return internalPromise
+              const promises = activatedRoutes.map(activatedRoute => activatedRoute.activate(this.rootContexts));
+              return Promise.all(promises)
                 .then(
                   () => {
                     navigationIsSuccessful = true;
                   }
                 );
-              }
             }
           )
           .then(
