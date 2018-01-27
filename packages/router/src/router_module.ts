@@ -350,6 +350,7 @@ export function rootRoute(router: Router): ActivatedRoute {
 export class RouterInitializer {
   private initNavigation: boolean = false;
   private resultOfPreactivationDone = new Subject<void>();
+  private initialNavPromise: Promise<any> = Promise.resolve();
 
   constructor(private injector: Injector) {}
 
@@ -381,7 +382,7 @@ export class RouterInitializer {
             return of (null) as any;
           }
         };
-        router.initialNavigation();
+        this.initialNavPromise = router.initialNavigation();
 
       } else {
         throw new Error(`Invalid initialNavigation options: '${opts.initialNavigation}'`);
@@ -391,14 +392,14 @@ export class RouterInitializer {
     });
   }
 
-  bootstrapListener(bootstrappedComponentRef: ComponentRef<any>): void {
+  bootstrapListener(bootstrappedComponentRef: ComponentRef<any>): Promise<void> {
     const opts = this.injector.get(ROUTER_CONFIGURATION);
     const preloader = this.injector.get(RouterPreloader);
     const router = this.injector.get(Router);
     const ref = this.injector.get<ApplicationRef>(ApplicationRef);
 
     if (bootstrappedComponentRef !== ref.components[0]) {
-      return;
+      return Promise.resolve();
     }
 
     if (this.isLegacyEnabled(opts)) {
@@ -411,6 +412,7 @@ export class RouterInitializer {
     router.resetRootComponentType(ref.componentTypes[0]);
     this.resultOfPreactivationDone.next(null !);
     this.resultOfPreactivationDone.complete();
+    return this.initialNavPromise;
   }
 
   private isLegacyEnabled(opts: ExtraOptions): boolean {

@@ -80,6 +80,7 @@ describe('bootstrap', () => {
     }
 
     platformBrowserDynamic([]).bootstrapModule(TestModule).then(res => {
+      console.log('Promise resolved');
       const router = res.injector.get(Router);
       const data = router.routerState.snapshot.root.firstChild !.data;
       expect(data['test']).toEqual('test-data');
@@ -89,6 +90,8 @@ describe('bootstrap', () => {
         'RootCmp', 'ActivationEnd', 'ChildActivationEnd', 'NavigationEnd'
       ]);
       done();
+    }).catch((err: Error) => {
+      console.log('caught block');
     });
   });
 

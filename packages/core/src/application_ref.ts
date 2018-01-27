@@ -245,9 +245,12 @@ export class PlatformRef {
         const initStatus: ApplicationInitStatus = moduleRef.injector.get(ApplicationInitStatus);
         initStatus.runInitializers();
         return initStatus.donePromise.then(() => {
-          this._moduleDoBootstrap(moduleRef);
-          return moduleRef;
-        });
+          return this._moduleDoBootstrap(moduleRef);
+        }).then(
+          () => {
+            return moduleRef;
+          }
+        );
       });
     });
   }
@@ -278,18 +281,26 @@ export class PlatformRef {
         .then((moduleFactory) => this.bootstrapModuleFactory(moduleFactory, options));
   }
 
-  private _moduleDoBootstrap(moduleRef: InternalNgModuleRef<any>): void {
+  private _moduleDoBootstrap(moduleRef: InternalNgModuleRef<any>): Promise<void> {
     const appRef = moduleRef.injector.get(ApplicationRef) as ApplicationRef;
+    const promises: Promise<any>[] = [];
     if (moduleRef._bootstrapComponents.length > 0) {
-      moduleRef._bootstrapComponents.forEach(f => appRef.bootstrap(f));
+      moduleRef._bootstrapComponents.forEach(f => {
+        promises.push(appRef.bootstrapAsync(f));
+      });
     } else if (moduleRef.instance.ngDoBootstrap) {
-      moduleRef.instance.ngDoBootstrap(appRef);
+      promises.push(Promise.resolve(moduleRef.instance.ngDoBootstrap(appRef)));
     } else {
       throw new Error(
           `The module ${stringify(moduleRef.instance.constructor)} was bootstrapped, but it does not declare "@NgModule.bootstrap" components nor a "ngDoBootstrap" method. ` +
           `Please define one of these.`);
     }
-    this._modules.push(moduleRef);
+    return Promise.all(promises)
+      .then(
+        () => {
+          this._modules.push(moduleRef);
+        }
+      );
   }
 
   /**
@@ -464,7 +475,7 @@ export class ApplicationRef {
    * {@example core/ts/platform/platform.ts region='longform'}
    */
   bootstrap<C>(componentOrFactory: ComponentFactory<C>|Type<C>, rootSelectorOrNode?: string|any):
-      ComponentRef<C> {
+      ComponentRef<C>{
     if (!this._initStatus.done) {
       throw new Error(
           'Cannot bootstrap as there are still asynchronous initializers running. Bootstrap components in the `ngDoBootstrap` method of the root module.');
@@ -499,6 +510,64 @@ export class ApplicationRef {
     }
     return compRef;
   }
+
+  /**
+   * Bootstrap a new component at the root level of the application.
+   *
+   * ### Bootstrap process
+   *
+   * When bootstrapping a new root component into an application, Angular mounts the
+   * specified application component onto DOM elements identified by the [componentType]'s
+   * selector and kicks off automatic change detection to finish initializing the component.
+   *
+   * Optionally, a component can be mounted onto a DOM element that does not match the
+   * [componentType]'s selector.
+   *
+   * ### Example
+   * {@example core/ts/platform/platform.ts region='longform'}
+   */
+  bootstrapAsync<C>(componentOrFactory: ComponentFactory<C>|Type<C>, rootSelectorOrNode?: string|any):
+      Promise<ComponentRef<C>> {
+    if (!this._initStatus.done) {
+      throw new Error(
+          'Cannot bootstrap as there are still asynchronous initializers running. Bootstrap components in the `ngDoBootstrap` method of the root module.');
+    }
+    let componentFactory: ComponentFactory<C>;
+    if (componentOrFactory instanceof ComponentFactory) {
+      componentFactory = componentOrFactory;
+    } else {
+      componentFactory =
+          this._componentFactoryResolver.resolveComponentFactory(componentOrFactory) !;
+    }
+    this.componentTypes.push(componentFactory.componentType);
+
+    // Create a factory associated with the current module if it's not bound to some other
+    const ngModule = componentFactory instanceof ComponentFactoryBoundToModule ?
+        null :
+        this._injector.get(NgModuleRef);
+    const selectorOrNode = rootSelectorOrNode || componentFactory.selector;
+    const compRef = componentFactory.create(Injector.NULL, [], selectorOrNode, ngModule);
+
+    compRef.onDestroy(() => { this._unloadComponent(compRef); });
+    const testability = compRef.injector.get(Testability, null);
+    if (testability) {
+      compRef.injector.get(TestabilityRegistry)
+          .registerApplication(compRef.location.nativeElement, testability);
+    }
+
+    return this._loadComponentAsync(compRef)
+      .then(
+        () => {
+          if (isDevMode()) {
+            this._console.log(
+                `Angular is running in the development mode. Call enableProdMode() to enable the production mode.`);
+          }
+          return compRef;
+        }
+      );
+  }
+
+
 
   /**
    * Invoke this method to explicitly process change detection and its side-effects.
@@ -559,6 +628,17 @@ export class ApplicationRef {
     const listeners =
         this._injector.get(APP_BOOTSTRAP_LISTENER, []).concat(this._bootstrapListeners);
     listeners.forEach((listener) => listener(componentRef));
+  }
+
+  private _loadComponentAsync(componentRef: ComponentRef<any>): Promise<any> {
+    this.attachView(componentRef.hostView);
+    this.tick();
+    this.components.push(componentRef);
+    // Get the listeners lazily to prevent DI cycles.
+    const listeners =
+        this._injector.get(APP_BOOTSTRAP_LISTENER, []).concat(this._bootstrapListeners);
+    const promises = listeners.map((listener) => Promise.resolve(listener(componentRef)));
+    return Promise.all(promises);
   }
 
   private _unloadComponent(componentRef: ComponentRef<any>): void {
