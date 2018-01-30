@@ -75,7 +75,9 @@ describe('bootstrap', () => {
     class TestModule {
       constructor(router: Router) {
         log.push('TestModule');
-        router.events.subscribe(e => log.push(e.constructor.name));
+        router.events.subscribe(e => {
+          log.push(e.constructor.name);
+        });
       }
     }
 
@@ -86,7 +88,7 @@ describe('bootstrap', () => {
       expect(log).toEqual([
         'TestModule', 'NavigationStart', 'RoutesRecognized', 'GuardsCheckStart',
         'ChildActivationStart', 'ActivationStart', 'GuardsCheckEnd', 'ResolveStart', 'ResolveEnd',
-        'RootCmp', 'ActivationEnd', 'ChildActivationEnd', 'NavigationEnd'
+        'ActivationEnd', 'ChildActivationEnd', 'NavigationEnd', 'RootCmp'
       ]);
       done();
     });

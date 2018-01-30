@@ -295,11 +295,12 @@ export class Router {
   /**
    * Sets up the location change listener and performs the initial navigation.
    */
-  initialNavigation(): void {
+  initialNavigation(): Promise<any> {
     this.setUpLocationChangeListener();
     if (this.navigationId === 0) {
-      this.navigateByUrl(this.location.path(true), {replaceUrl: true});
+      return this.navigateByUrl(this.location.path(true), {replaceUrl: true});
     }
+    return Promise.resolve();
   }
 
   /**

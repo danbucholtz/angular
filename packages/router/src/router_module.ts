@@ -354,6 +354,7 @@ export class RouterInitializer {
   constructor(private injector: Injector) {}
 
   appInitializer(): Promise<any> {
+    let initialNavPromise = Promise.resolve();
     const p: Promise<any> = this.injector.get(LOCATION_INITIALIZED, Promise.resolve(null));
     return p.then(() => {
       let resolve: Function = null !;
@@ -381,13 +382,17 @@ export class RouterInitializer {
             return of (null) as any;
           }
         };
-        router.initialNavigation();
+        initialNavPromise = router.initialNavigation();
 
       } else {
         throw new Error(`Invalid initialNavigation options: '${opts.initialNavigation}'`);
       }
 
       return res;
+    }).then(() => {
+      this.resultOfPreactivationDone.next(null !);
+      this.resultOfPreactivationDone.complete();
+      return initialNavPromise;
     });
   }
 
@@ -409,8 +414,6 @@ export class RouterInitializer {
 
     preloader.setUpPreloading();
     router.resetRootComponentType(ref.componentTypes[0]);
-    this.resultOfPreactivationDone.next(null !);
-    this.resultOfPreactivationDone.complete();
   }
 
   private isLegacyEnabled(opts: ExtraOptions): boolean {
